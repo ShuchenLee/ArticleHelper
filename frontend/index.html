@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ArticleHelper</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="workspace">
+      <section class="reader">
+        <div class="reader__visual">
+          <img
+            src="https://images.unsplash.com/photo-1456324504439-367cee3b3c32?auto=format&fit=crop&w=1200&q=80"
+            alt="Open notebook on a desk"
+          />
+        </div>
+
+        <div class="upload-band">
+          <div>
+            <p class="eyebrow">ArticleHelper</p>
+            <h1>上传论文，开始精读</h1>
+          </div>
+          <form id="upload-form" class="upload-form">
+            <input id="paper-file" type="file" accept="application/pdf" />
+            <button type="submit">上传 PDF</button>
+          </form>
+        </div>
+
+        <section class="paper-state" aria-live="polite">
+          <div>
+            <span class="label">状态</span>
+            <strong id="paper-status">等待上传</strong>
+          </div>
+          <div>
+            <span class="label">标题</span>
+            <strong id="paper-title">暂无</strong>
+          </div>
+          <div>
+            <span class="label">语言</span>
+            <strong id="paper-language">暂无</strong>
+          </div>
+        </section>
+
+        <section class="quick-actions">
+          <button data-prompt="请总结这篇文章">总结全文</button>
+          <button data-prompt="这篇文章的主要贡献是什么？">主要贡献</button>
+          <button data-prompt="请说明这篇文章的方法。">研究方法</button>
+          <button data-prompt="这篇文章有什么局限性？">局限性</button>
+        </section>
+      </section>
+
+      <section class="chat-panel">
+        <div id="messages" class="messages" aria-live="polite">
+          <article class="message message--assistant">
+            <p>上传一篇 PDF 后，可以直接提问。</p>
+          </article>
+        </div>
+
+        <form id="chat-form" class="chat-form">
+          <textarea
+            id="selected-text"
+            rows="3"
+            placeholder="可选：粘贴需要解释的原文片段"
+          ></textarea>
+          <div class="chat-form__row">
+            <input
+              id="chat-input"
+              type="text"
+              placeholder="例如：这篇文章的主要贡献是什么？"
+              autocomplete="off"
+            />
+            <button type="submit">发送</button>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
