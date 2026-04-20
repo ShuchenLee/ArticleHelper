@@ -92,8 +92,8 @@ def load_key_value_config(path: Path | str) -> dict[str, str]:
         return {}
 
     values: dict[str, str] = {}
-    for raw_line in config_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
+    for raw_line in config_path.read_text(encoding="utf-8-sig").splitlines():
+        line = raw_line.strip().lstrip("\ufeff")
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)

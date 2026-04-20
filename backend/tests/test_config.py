@@ -26,6 +26,16 @@ def test_load_key_value_config_reads_quoted_values(tmp_path: Path):
     }
 
 
+def test_load_key_value_config_handles_utf8_bom(tmp_path: Path):
+    config_path = tmp_path / "config.txt"
+    config_path.write_text(
+        'embedding_model = "text-embedding-v4"\n',
+        encoding="utf-8-sig",
+    )
+
+    assert load_key_value_config(config_path)["embedding_model"] == "text-embedding-v4"
+
+
 def test_settings_from_env_uses_config_file(monkeypatch, tmp_path: Path):
     config_path = tmp_path / "config.txt"
     config_path.write_text(
