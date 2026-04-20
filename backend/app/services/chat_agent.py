@@ -1,10 +1,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol
 
 from app.models.domain import ChunkRecord
+from app.services.qwen_client import QwenClientError
 from app.services.retrieval_service import SearchResult, search_chunks
 from app.services.summary_service import build_paper_overview, compact_snippet
+
+
+class LLMClient(Protocol):
+    def chat_completion(
+        self,
+        *,
+        messages: list[dict[str, str]],
+        temperature: float = 0.2,
+        max_tokens: int = 1200,
+    ) -> str: ...
 
 
 @dataclass(frozen=True)
@@ -28,8 +40,17 @@ def answer_from_paper(
     chunks: list[ChunkRecord],
     selected_text: str | None = None,
     top_k: int = 4,
+    llm_client: LLMClient | None = None,
 ) -> ChatAnswer:
     if selected_text:
+        if llm_client:
+            try:
+                return ChatAnswer(
+                    answer=_llm_selected_text_answer(message, selected_text, llm_client),
+                    citations=[],
+                )
+            except QwenClientError:
+                pass
         return ChatAnswer(
             answer=_answer_selected_text(selected_text),
             citations=[],
@@ -55,7 +76,7 @@ def answer_from_paper(
         )
 
     return ChatAnswer(
-        answer=_format_evidence_answer(message, results),
+        answer=_format_answer_with_optional_llm(message, results, llm_client),
         citations=[_citation(result.chunk) for result in results],
     )
 
@@ -73,6 +94,62 @@ def _answer_selected_text(selected_text: str) -> str:
         f"{snippet}\n\n"
         "当前版本先做基于原文的抽取式解释；下一步接入大模型后，可以进一步提供术语解释、长句拆解和批判性分析。"
     )
+
+
+def _llm_selected_text_answer(message: str, selected_text: str, llm_client: LLMClient) -> str:
+    return llm_client.chat_completion(
+        messages=[
+            {"role": "system", "content": _system_prompt()},
+            {
+                "role": "user",
+                "content": (
+                    "用户正在阅读论文中选中的一段原文。\n"
+                    f"用户问题：{message}\n\n"
+                    f"选中文本：\n{selected_text}\n\n"
+                    "请基于这段文本回答，不要编造文中没有的信息。"
+                ),
+            },
+        ],
+        temperature=0.2,
+        max_tokens=1200,
+    )
+
+
+def _format_answer_with_optional_llm(
+    message: str,
+    results: list[SearchResult],
+    llm_client: LLMClient | None,
+) -> str:
+    if not llm_client:
+        return _format_evidence_answer(message, results)
+
+    context = "\n\n".join(
+        (
+            f"[证据 {index}] section={result.chunk.section or 'Unknown'}; "
+            f"pages={_format_page_range(result.chunk.page_start, result.chunk.page_end)}\n"
+            f"{result.chunk.text}"
+        )
+        for index, result in enumerate(results, start=1)
+    )
+    try:
+        return llm_client.chat_completion(
+            messages=[
+                {"role": "system", "content": _system_prompt()},
+                {
+                    "role": "user",
+                    "content": (
+                        f"用户问题：{message}\n\n"
+                        f"以下是从当前论文中检索到的证据片段：\n{context}\n\n"
+                        "请只基于这些证据回答。回答需要包含：简短结论、依据原文、"
+                        "不确定之处。引用证据时说明章节和页码。"
+                    ),
+                },
+            ],
+            temperature=0.2,
+            max_tokens=1600,
+        )
+    except QwenClientError:
+        return _format_evidence_answer(message, results)
 
 
 def _format_evidence_answer(message: str, results: list[SearchResult]) -> str:
@@ -125,3 +202,13 @@ def _format_page_range(page_start: int, page_end: int) -> str:
     if page_start == page_end:
         return f"第 {page_start} 页"
     return f"第 {page_start}-{page_end} 页"
+
+
+def _system_prompt() -> str:
+    return (
+        "你是一个文献阅读智能体，帮助用户理解当前上传的论文。"
+        "默认只基于提供的论文证据回答。"
+        "如果证据不足，明确说明文中未明确说明。"
+        "不要编造实验数据、作者观点、公式或引用。"
+        "用户使用中文提问时，用中文回答；英文术语可以保留英文。"
+    )

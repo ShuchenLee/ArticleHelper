@@ -49,3 +49,24 @@ def test_answer_from_paper_uses_selected_text_directly():
 
     assert "selected paragraph" in answer.answer
     assert answer.citations == []
+
+
+def test_answer_from_paper_uses_llm_when_available():
+    class FakeLLM:
+        def chat_completion(self, *, messages, temperature=0.2, max_tokens=1200):
+            assert "retrieval augmented generation" in messages[-1]["content"]
+            return "LLM generated answer"
+
+    chunks = [
+        _chunk(0, "Methods", "The method uses retrieval augmented generation to answer questions."),
+    ]
+
+    answer = answer_from_paper(
+        "What method answers questions?",
+        title="Paper",
+        chunks=chunks,
+        llm_client=FakeLLM(),
+    )
+
+    assert answer.answer == "LLM generated answer"
+    assert answer.citations[0].section == "Methods"

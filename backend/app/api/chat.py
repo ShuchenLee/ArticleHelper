@@ -5,6 +5,8 @@ from fastapi import APIRouter, HTTPException
 from app.api.papers import get_database
 from app.models.api import ChatRequest, ChatResponse, CitationResponse
 from app.services.chat_agent import answer_from_paper
+from app.services.qwen_client import build_qwen_client
+from app.core.config import settings
 
 
 router = APIRouter(prefix="/api/papers", tags=["chat"])
@@ -26,6 +28,12 @@ def chat_with_paper(paper_id: str, request: ChatRequest) -> ChatResponse:
         title=paper.title,
         chunks=chunks,
         selected_text=request.selected_text,
+        llm_client=build_qwen_client(
+            api_key=settings.api_key,
+            base_url=settings.api_base_url,
+            llm_model=settings.llm_model,
+            embedding_model=settings.embedding_model,
+        ),
     )
     database.add_message(paper_id, "assistant", answer.answer)
 

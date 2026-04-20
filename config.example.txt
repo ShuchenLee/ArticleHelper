@@ -1,0 +1,4 @@
+embedding_model = "your-embedding-model"
+llm_model = "your-llm-model"
+api_key = "your-api-key"
+api_base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"

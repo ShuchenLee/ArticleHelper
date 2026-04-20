@@ -12,6 +12,7 @@ env/
 
 # Local environment
 .env
+config.txt
 
 # Runtime data
 data/uploads/
