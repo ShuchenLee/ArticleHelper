@@ -2,10 +2,18 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
+import json
 from pathlib import Path
 from typing import Iterable
 
-from app.models.domain import ChatMessageRecord, ChunkRecord, PageRecord, PaperRecord, utc_now_iso
+from app.models.domain import (
+    ChatMessageRecord,
+    ChunkRecord,
+    EmbeddingRecord,
+    PageRecord,
+    PaperRecord,
+    utc_now_iso,
+)
 
 
 class Database:
@@ -59,6 +67,16 @@ class Database:
                     role TEXT NOT NULL,
                     content TEXT NOT NULL,
                     created_at TEXT NOT NULL,
+                    FOREIGN KEY(paper_id) REFERENCES papers(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS chunk_embeddings (
+                    chunk_id TEXT PRIMARY KEY,
+                    paper_id TEXT NOT NULL,
+                    model TEXT NOT NULL,
+                    embedding_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY(chunk_id) REFERENCES paper_chunks(id),
                     FOREIGN KEY(paper_id) REFERENCES papers(id)
                 );
                 """
@@ -156,6 +174,38 @@ class Database:
             ).fetchall()
         return [_chunk_from_row(row) for row in rows]
 
+    def insert_embeddings(self, embeddings: Iterable[EmbeddingRecord]) -> None:
+        with self.connect() as connection:
+            connection.executemany(
+                """
+                INSERT OR REPLACE INTO chunk_embeddings
+                (chunk_id, paper_id, model, embedding_json, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        embedding.chunk_id,
+                        embedding.paper_id,
+                        embedding.model,
+                        json.dumps(embedding.embedding),
+                        embedding.created_at,
+                    )
+                    for embedding in embeddings
+                ],
+            )
+
+    def list_embeddings(self, paper_id: str) -> list[EmbeddingRecord]:
+        with self.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM chunk_embeddings
+                WHERE paper_id = ?
+                ORDER BY chunk_id
+                """,
+                (paper_id,),
+            ).fetchall()
+        return [_embedding_from_row(row) for row in rows]
+
     def add_message(self, paper_id: str, role: str, content: str) -> ChatMessageRecord:
         message = ChatMessageRecord(
             id=str(uuid.uuid4()),
@@ -218,6 +268,16 @@ def _chunk_from_row(row: sqlite3.Row) -> ChunkRecord:
         page_end=row["page_end"],
         chunk_index=row["chunk_index"],
         text=row["text"],
+    )
+
+
+def _embedding_from_row(row: sqlite3.Row) -> EmbeddingRecord:
+    return EmbeddingRecord(
+        chunk_id=row["chunk_id"],
+        paper_id=row["paper_id"],
+        model=row["model"],
+        embedding=json.loads(row["embedding_json"]),
+        created_at=row["created_at"],
     )
 
 

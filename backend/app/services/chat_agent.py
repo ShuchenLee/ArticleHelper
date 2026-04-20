@@ -41,6 +41,7 @@ def answer_from_paper(
     selected_text: str | None = None,
     top_k: int = 4,
     llm_client: LLMClient | None = None,
+    search_results: list[SearchResult] | None = None,
 ) -> ChatAnswer:
     if selected_text:
         if llm_client:
@@ -65,7 +66,7 @@ def answer_from_paper(
         ][:4]
         return ChatAnswer(answer=_format_overview(overview), citations=citations)
 
-    results = search_chunks(message, chunks, top_k=top_k)
+    results = search_results if search_results is not None else search_chunks(message, chunks, top_k=top_k)
     if not results:
         return ChatAnswer(
             answer=(

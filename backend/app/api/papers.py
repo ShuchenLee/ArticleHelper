@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.models.api import PageResponse, PaperStatusResponse, PaperUploadResponse
 from app.services.paper_parser import PaperParseError
 from app.services.paper_pipeline import ingest_pdf
+from app.services.qwen_client import QwenClientError, build_qwen_client
 from app.storage.database import Database
 
 
@@ -34,14 +35,24 @@ async def upload_paper(file: UploadFile = File(...)) -> PaperUploadResponse:
         temp_file.write(await file.read())
 
     try:
+        qwen_client = build_qwen_client(
+            api_key=settings.api_key,
+            base_url=settings.api_base_url,
+            llm_model=settings.llm_model,
+            embedding_model=settings.embedding_model,
+        )
         paper_id = ingest_pdf(
             source_path=temp_path,
             original_filename=file.filename,
             database=database,
             upload_dir=settings.upload_dir,
+            embedding_client=qwen_client if settings.has_embedding_config else None,
+            embedding_model=settings.embedding_model,
         )
     except PaperParseError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except QwenClientError as exc:
+        raise HTTPException(status_code=502, detail=f"Embedding API failed: {exc}") from exc
     finally:
         temp_path.unlink(missing_ok=True)
 

@@ -1,5 +1,6 @@
 from app.models.domain import ChunkRecord
 from app.services.chat_agent import answer_from_paper
+from app.services.retrieval_service import SearchResult
 
 
 def _chunk(index: int, section: str, text: str) -> ChunkRecord:
@@ -70,3 +71,20 @@ def test_answer_from_paper_uses_llm_when_available():
 
     assert answer.answer == "LLM generated answer"
     assert answer.citations[0].section == "Methods"
+
+
+def test_answer_from_paper_uses_supplied_search_results():
+    chunks = [
+        _chunk(0, "Methods", "Unrelated lexical text."),
+        _chunk(1, "Results", "Vector selected evidence."),
+    ]
+
+    answer = answer_from_paper(
+        "question with no lexical overlap",
+        title="Paper",
+        chunks=chunks,
+        search_results=[SearchResult(chunk=chunks[1], score=0.9)],
+    )
+
+    assert answer.citations[0].section == "Results"
+    assert "Vector selected evidence" in answer.answer

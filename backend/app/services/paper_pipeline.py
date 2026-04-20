@@ -7,6 +7,7 @@ from pathlib import Path
 from app.models.domain import PageRecord
 from app.services.chunker import build_chunks
 from app.services.paper_parser import parse_pdf
+from app.services.vector_retrieval_service import EmbeddingClient, build_chunk_embeddings
 from app.storage.database import Database
 
 
@@ -16,6 +17,8 @@ def ingest_pdf(
     original_filename: str,
     database: Database,
     upload_dir: Path,
+    embedding_client: EmbeddingClient | None = None,
+    embedding_model: str | None = None,
 ) -> str:
     paper_id = str(uuid.uuid4())
     destination = upload_dir / f"{paper_id}{Path(original_filename).suffix.lower()}"
@@ -40,7 +43,15 @@ def ingest_pdf(
             for page in parsed.pages
         ]
     )
-    database.insert_chunks(build_chunks(paper_id, parsed.pages))
+    chunks = build_chunks(paper_id, parsed.pages)
+    database.insert_chunks(chunks)
+    if embedding_client and embedding_model and chunks:
+        embeddings = build_chunk_embeddings(
+            chunks,
+            embedding_client=embedding_client,
+            model=embedding_model,
+        )
+        database.insert_embeddings(embeddings)
     database.update_paper_status(
         paper_id,
         "ready",

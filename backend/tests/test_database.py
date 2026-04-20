@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.models.domain import ChunkRecord, PageRecord
+from app.models.domain import ChunkRecord, EmbeddingRecord, PageRecord, utc_now_iso
 from app.storage.database import Database
 
 
@@ -47,6 +47,21 @@ def test_database_crud_round_trip(tmp_path: Path):
     chunks = database.list_chunks("paper-1")
     assert len(chunks) == 1
     assert chunks[0].section == "Abstract"
+
+    database.insert_embeddings(
+        [
+            EmbeddingRecord(
+                chunk_id="chunk-1",
+                paper_id="paper-1",
+                model="text-embedding-test",
+                embedding=[0.1, 0.2, 0.3],
+                created_at=utc_now_iso(),
+            )
+        ]
+    )
+    embeddings = database.list_embeddings("paper-1")
+    assert len(embeddings) == 1
+    assert embeddings[0].embedding == [0.1, 0.2, 0.3]
 
     database.add_message("paper-1", "user", "What is this paper about?")
     database.add_message("paper-1", "assistant", "It is about testing.")

@@ -39,6 +39,15 @@ class ChunkRecord:
 
 
 @dataclass(frozen=True)
+class EmbeddingRecord:
+    chunk_id: str
+    paper_id: str
+    model: str
+    embedding: list[float]
+    created_at: str
+
+
+@dataclass(frozen=True)
 class ChatMessageRecord:
     id: str
     paper_id: str
